@@ -88,6 +88,15 @@ def map_labels(hg, box3d):
     points, indexes = extract_pc_in_box3d(samples_to_array(hg), box3d)
     return [int(index) for index in indexes]
 
+def sample_points(xmax, xmin, ymax, ymin, zmax, zmin, max_samples):
+    x = np.random.uniform(low=xmin, high=xmax, size=max_samples)
+    y = np.random.uniform(low=ymin, high=ymax, size=max_samples)
+    z = np.random.uniform(low=zmin, high=zmax, size=max_samples)
+    intensity = np.random.uniform(low=0, high=1, size=max_samples)
+    
+    return np.vstack((x,y,z, intensity)).T
+        
+
 def height_grid(pc, label, box3d):
     """
         Does the whole process, from frustum to building the height grid and obtaining the samples
