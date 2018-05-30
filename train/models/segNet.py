@@ -1,37 +1,118 @@
 from keras.models import Sequential
-from keras.layers import Conv2D, MaxPooling2D, Dense, Dropout, Flatten
+from keras.layers import Conv2D, MaxPooling2D, Dense, Dropout, Flatten, Lambda, ZeroPadding2D, BatchNormalization, Activation, UpSampling2D, Layer, Reshape, Permute
+from keras.optimizers import SGD, Adam
+from keras import backend as K
+import tensorflow as tf
 
 class SegNet():
 
 
-    def __init__(self, batch_size=32, num_points=1048, num_classes=2):
+    def __init__(self, batch_size=32, num_classes=2, num_channels=1, init_weights=False):
+        
         self.model = Sequential()
+        self.model.add(Conv2D(64, kernel_size=(2,2), padding='valid', strides=(1,1), input_shape=(100, 50, 1), activation='relu'))
+        self.model.add(MaxPooling2D(pool_size=(2, 2), name='maxpool'))
+        self.model.add(Flatten(name='flat'))
+        self.model.add(Dense(5000, activation='sigmoid', name='out'))
         
-        self.model.add(Conv2D(64, (1, 1), padding='valid', strides=(1,1), input_shape=(num_points, 1, 4)))
-        self.model.add(Conv2D(64, (1, 1), padding='valid', strides=(1,1), activation='relu'))
-        self.model.add(Conv2D(64, (1, 1), padding='valid', strides=(1,1), activation='relu'))
-        self.model.add(Conv2D(128, (1, 1), padding='valid', strides=(1,1), activation='relu'))
-        self.model.add(Conv2D(1024, (1, 1), padding='valid', strides=(1,1), activation='relu'))
-        self.model.add(MaxPooling2D(pool_size=(num_points, 1)))
+        sgd = SGD(lr=0.00001)
+        self.model.compile(optimizer=sgd, loss='binary_crossentropy', metrics=['accuracy'])
+        #show_output(self.model)
         
-        self.model.add(Conv2D(512, (1, 1), padding='valid', strides=(1,1), activation='relu'))
-        self.model.add(Conv2D(256, (1, 1), padding='valid', strides=(1,1), activation='relu'))
-        self.model.add(Conv2D(128, (1, 1), padding='valid', strides=(1,1), activation='softmax'))
-        self.model.add(Dropout(0.5))
+        """
+        kernel = 3
+        filter_size = 64
+        pad = 1
+        pool_size = 2
 
-        self.model.add(Conv2D(64, (1, 1), padding='valid', strides=(1,1), activation='relu'))
-        self.model.add(Conv2D(32, (1, 1), padding='valid', strides=(1,1), activation='relu'))
-        self.model.add(Conv2D(16, (1, 1), padding='valid', strides=(1,1), activation='softmax'))
-        self.model.add(Conv2D(8, (1, 1), padding='valid', strides=(1,1), activation='relu'))
-        self.model.add(Conv2D(4, (1, 1), padding='valid', strides=(1,1), activation='softmax'))
-        self.model.add(Conv2D(2, (1, 1), padding='valid', strides=(1,1), activation='relu'))
+        self.model = Sequential()
+        self.model.add(Layer(input_shape=(160, 96, 1)))
+
+        # encoder
+        self.model.add(ZeroPadding2D(padding=(pad,pad)))
+        self.model.add(Conv2D(filter_size, (kernel, kernel), padding='valid'))
+        self.model.add(BatchNormalization())
+        self.model.add(Activation('relu'))
+        self.model.add(MaxPooling2D(pool_size=(pool_size, pool_size)))
+
+        self.model.add(ZeroPadding2D(padding=(pad,pad)))
+        self.model.add(Conv2D(128, (kernel, kernel), padding='valid'))
+        self.model.add(BatchNormalization())
+        self.model.add(Activation('relu'))
+        self.model.add(MaxPooling2D(pool_size=(pool_size, pool_size)))
+
+        self.model.add(ZeroPadding2D(padding=(pad,pad)))
+        self.model.add(Conv2D(256, (kernel, kernel), padding='valid'))
+        self.model.add(BatchNormalization())
+        self.model.add(Activation('relu'))
+        self.model.add(MaxPooling2D(pool_size=(pool_size, pool_size)))
+
+        self.model.add(ZeroPadding2D(padding=(pad,pad)))
+        self.model.add(Conv2D(512, (kernel, kernel), padding='valid'))
+        self.model.add(BatchNormalization())
+        self.model.add(Activation('relu'))
+
+
+        # decoder
+        self.model.add( ZeroPadding2D(padding=(pad,pad)))
+        self.model.add( Conv2D(512, (kernel, kernel), padding='valid'))
+        self.model.add( BatchNormalization())
+
+        self.model.add( UpSampling2D(size=(pool_size,pool_size)))
+        self.model.add( ZeroPadding2D(padding=(pad,pad)))
+        self.model.add( Conv2D(256, (kernel, kernel), padding='valid'))	
+        self.model.add( BatchNormalization())
+
+        self.model.add( UpSampling2D(size=(pool_size,pool_size)))
+        self.model.add( ZeroPadding2D(padding=(pad,pad)))
+        self.model.add( Conv2D(128, (kernel, kernel), padding='valid'))
+        self.model.add( BatchNormalization())
+
+        self.model.add( UpSampling2D(size=(pool_size,pool_size)))
+        print(self.model.output_shape)
+        self.model.add( ZeroPadding2D(padding=(pad,pad)))
+        #$self.model.add(ZeroPadding2D(((1, 0), (0, 0))))
+        self.model.add( Conv2D(filter_size, (kernel, kernel), padding='valid'))
+        self.model.add( BatchNormalization())
+
+
+        self.model.add(Conv2D(2, (1, 1), padding='valid'))
+
+        self.model.outputHeight = self.model.output_shape[-2]
+        self.model.outputWidth = self.model.output_shape[-1]
+        print(self.model.output_shape)
+
+        self.model.add(Reshape((2, self.model.output_shape[-2]*self.model.output_shape[-1]), input_shape=(2, self.model.output_shape[-2], self.model.output_shape[-1])))
+        print(self.model.output_shape)
+        self.model.add(Permute((2, 1)))
+        self.model.add(Activation('softmax'))
+        sgd = SGD(lr=0.00001)
+        self.model.compile(loss="categorical_crossentropy", optimizer= sgd , metrics=['accuracy'] )
+        """
         
-        self.model.add(Flatten())
-        #self.model.add(Dense(num_points, activation='relu'))
-        self.model.add(Dense(512, activation='relu'))
-        self.model.add(Dense(256, activation='relu'))
-        self.model.add(Dense(128, activation='relu'))
-        self.model.add(Dense(num_points, activation='relu'))
-        self.model.compile(optimizer='adam', loss='mean_absolute_error', metrics=['accuracy'])
+def gen_weights(shape1, shape2):
+    import numpy as np
+    weights = []
+    for idx in range(shape1):
+        row_unique = np.random.rand()
+        row = np.full((shape2), row_unique)
+        weights.append(row)
+    return [np.array(weights), np.zeros((shape2))]
+
+def show_w(model):
+    for layer in model.layers:
+        g=layer.get_config()
+        h=layer.get_weights()
+        print (g)
+        print (h)
+        print(h[0].shape)
+        print(h[1].shape)
         
+def show_output(model):
+    for layer in model.layers:
+        cfg = layer.get_config()
+        output = layer.output
+        print(cfg)
+        print(output)
+    
         

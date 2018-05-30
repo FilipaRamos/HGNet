@@ -23,7 +23,7 @@ def plot_BEV(points, samples=None, labels=None):
     fig = plt.figure(figsize=(20,12))
     ax = fig.add_subplot(111, projection='3d')
     ax.set_facecolor((0.11, 0.11, 0.11))
-    ax.view_init(0, 0)
+    fig.view_init(90, 180)
     
     pnt = points.T[0:3]
     ax.scatter(*pnt, s = 0.5, c='black', marker='.', alpha=1)
@@ -71,3 +71,48 @@ def plot_all(img, pc):
     plt.draw()
     plt.tight_layout()
     plt.show()
+    
+def plot_grid_colormap(grid, labels, pred=None, sig=False):
+    fig = plt.figure(figsize=(12, 6))
+
+    ax = fig.add_subplot(1,3,1)
+    ax.set_title('ColorMap of BEV HeightGrid')
+    plt.imshow(grid)
+    ax.set_aspect('equal')
+    
+    ax_l = fig.add_subplot(1,3,2)
+    ax_l.set_title('Labels of BEV HeightGrid')
+    plt.imshow(labels)
+    ax_l.set_aspect('equal')
+    
+    if pred is not None:
+        ax_c = fig.add_subplot(1,3,3)
+        ax_c.set_title('Predicted logits of BEV HeightGrid')
+        plt.imshow(pred)
+        ax_c.set_aspect('equal')
+        
+        if sig:
+            ax_c = fig.add_subplot(1,3,3)
+            ax_c.set_title('Predicted logits of BEV HeightGrid')
+            plt.imshow(pred)
+            ax_c.set_aspect('equal')
+        
+    plt.colorbar(orientation='horizontal')
+    plt.show()
+    
+def save_img(grid, label, pred, epoch):
+    """ Save grid image """
+    cmap_grid = plt.cm.jet
+    image_grid = cmap_grid(grid)
+    # save the image
+    plt.imsave('images/grid_' + str(epoch) + '.png', image_grid)
+    """ Save original label """
+    cmap_label = plt.cm.jet
+    image_label = cmap_label(pred)
+    # save the image
+    plt.imsave('images/label_' + str(epoch) + '.png', image_label)
+    """ Save prediction image """
+    cmap_pred = plt.cm.jet
+    image_pred = cmap_pred(pred)
+    # save the image
+    plt.imsave('images/pred_' + str(epoch) + '.png', image_pred)

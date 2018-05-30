@@ -107,3 +107,7 @@ kitti/frustum_carpedcyc_val.pickle
 kitti/frustum_carpedcyc_val_rgb_detection.pickle
 kitti/pc_hg_train.pickle
 kitti/pc_hg_val.pickle
+
+# model logs folder
+logs/
+images/

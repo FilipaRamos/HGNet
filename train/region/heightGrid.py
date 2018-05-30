@@ -1,4 +1,3 @@
-import math
 import numpy as np
 
 mean_sizes = {'Car': np.array([3.88311640418,1.62856739989,1.52563191462]),
@@ -11,50 +10,54 @@ class HeightGrid():
     """
         An HeightGrid has a size nxm, a sampling rate, a maximum number of points in the frustum.
     """
-    def __init__(self, label, min_z, max_z, min_x, max_x, max_y, sample_rate_z=0.01, sample_rate_x=0.005):
-        self.label = label
-        self.sample_rate = (sample_rate_z, sample_rate_x)
+    def __init__(self, min_x, max_x, min_y, max_y, min_z, max_z, grid_x=160, grid_y=128, intensity=False):
+        x_diff = max_x - min_x
+        y_diff = max_y - min_y
+        sample_rate_x = x_diff / grid_x
+        sample_rate_y = y_diff / grid_y
         
-        self.min_z = min_z
-        self.max_z = max_z
+        self.sample_rate = (sample_rate_x, sample_rate_y)
+        
         self.min_x = min_x
         self.max_x = max_x
+        self.min_y = min_y
+        self.max_y = max_y
         
-        self.max_height = max_y
+        self.n = grid_x
+        self.m = grid_y
         
-        #self.n = len(np.arange(self.min_z, self.max_z, self.sample_rate[0])) - 1
-        #self.m = len(np.arange(self.min_x, self.max_x, self.sample_rate[1])) - 1
+        self.min_height = min_z
         
-        self.samples = []
+        self.intensity = intensity
         
-    def __create_grid__(self, points):
-        steps_z = np.arange(self.min_z, self.max_z, self.sample_rate[0])
-        steps_x = np.arange(self.min_x, self.max_x, self.sample_rate[1])
+        #self.grid = np.zeros((self.n, self.m))
+        self.grid = np.full((self.n, self.m), self.min_height)
+        self.grid_offsets = ((self.min_x, self.max_x), (self.min_y, self.max_y), self.sample_rate, (self.n, self.m))
+        self.labels = np.zeros((self.n, self.m))
         
-        grid = self.__fill_dict__(steps_z, steps_x)
+    def __create_grid__(self, points, labels_idx, box3d=None):
+        import math
         
-        for point in points:
-            z = int((-self.min_z + point[2])/self.sample_rate[0])
-            x = int((-self.min_x + point[0])/self.sample_rate[1])
+        for point, label in zip(points, labels_idx):
+            x = int((np.abs(self.min_x) + point[0])/self.sample_rate[0])
+            y = int((np.abs(self.min_y) + point[1])/self.sample_rate[1])
             
-            cell = str(steps_z[z]) + '-' + str(steps_x[x])
-            if point[1] < grid.get(cell)[1]: #and not math.isclose(point[2], 0.0, rel_tol=1e-02, abs_tol=1e-01):
-                val = grid.get(cell)
-                grid[cell] = [val[0], point[1], val[2], point[3]]
+            # last point contained on the last cell and not starting a new one
+            if point[0] == self.max_x:
+                x = self.n - 1
+            if point[1] == self.max_y:
+                y = self.m - 1
             
-        # dict values are the sampled points
-        #print(grid.values())
-        self.samples = [point for point in list(grid.values()) if point[1] != self.max_height]
-    
-    def __fill_dict__(self, steps_z, steps_x):
-        grid = {}
-        
-        for z in steps_z:
-            for x in steps_x:
-                cell = str(z) + '-' + str(x)
-                grid[cell] = [x + (self.sample_rate[1]/2), self.max_height, z + (self.sample_rate[0]/2), 0]
-        
-        return grid
+            if point[2] > self.grid[x][y]:
+                # keep intensity and height
+                if self.intensity:
+                    self.grid[x][y] = (point[2], point[3])
+                else:
+                    self.grid[x][y] = point[2]
+            
+            if box3d is not None:
+                if label:
+                    self.labels[x][y] = 1
 
 def max_col_elem(l, col):
     return max(l, key=lambda x: x[col - 1])[col - 1]
@@ -68,7 +71,8 @@ def min_col_elem(l, col):
 def pc_frame(points):
     return max_col_elem(points, 1), min_col_elem(points, 1), \
             max_col_elem(points, 2), min_col_elem(points, 2), \
-            max_col_elem(points, 3), min_col_elem(points, 3)
+            max_col_elem(points, 3), min_col_elem(points, 3), \
+            max_col_elem(points, 4), min_col_elem(points, 4)
         
 def samples_to_array(hg):
     return np.array([np.array(point) for point in hg.samples])
@@ -82,11 +86,7 @@ def in_hull(p, hull):
 def extract_pc_in_box3d(pc, box3d):
     ''' pc: (N,3), box3d: (8,3) '''
     box3d_roi_inds = in_hull(pc[:,0:3], box3d)
-    return pc[box3d_roi_inds,:], box3d_roi_inds
-        
-def map_labels(hg, box3d):
-    points, indexes = extract_pc_in_box3d(samples_to_array(hg), box3d)
-    return [int(index) for index in indexes]
+    return pc[box3d_roi_inds,:], box3d_roi_inds 
 
 def sample_points(xmax, xmin, ymax, ymin, zmax, zmin, max_samples):
     x = np.random.uniform(low=xmin, high=xmax, size=max_samples)
@@ -95,18 +95,57 @@ def sample_points(xmax, xmin, ymax, ymin, zmax, zmin, max_samples):
     intensity = np.random.uniform(low=0, high=1, size=max_samples)
     
     return np.vstack((x,y,z, intensity)).T
-        
 
-def height_grid(pc, label, box3d):
+def normalize_data(points):
+    # first remove intensity 
+    points = points.T[0:3].T
+    l = points.shape[0]
+    centroid = np.mean(points, axis=0)
+    pc = points - centroid
+    m = np.max(np.sqrt(np.sum(pc**2, axis=1)))
+    pc = pc / m
+    return pc, centroid, m
+
+def normalize_box3d(box, centroid, m):
+    box3d = box - centroid
+    box_3d = box3d / m
+    return box_3d
+
+def switch_coord_system(pc):
+    pc[[0,1,2,3]] = pc[[2,0,1,3]]
+    return pc.T
+
+def height_grid(pc, box3d=None, label=None):
     """
-        Does the whole process, from frustum to building the height grid and obtaining the samples
+        Does the whole process, from building the height grid to obtaining the labeled grid
     """
-    xmax, xmin, ymax, ymin, zmax, zmin = pc_frame(pc)
-    if label == 'Car':
-        hg = HeightGrid(label, zmin, zmax, xmin, xmax, ymax, sample_rate_z=0.10, sample_rate_x=0.07)
-    elif label == 'Pedestrian':
-        hg = HeightGrid(label, zmin, zmax, xmin, xmax, ymax, sample_rate_z=0.01, sample_rate_x=0.05)
-    elif label == 'Cyclist':
-        hg = HeightGrid(label, zmin, zmax, xmin, xmax, ymax, sample_rate_z=0.03, sample_rate_x=0.05)
-    hg.__create_grid__(pc)
-    return hg.samples, map_labels(hg, box3d)
+    # get indexes for segmentation first
+    if box3d is not None:
+        pc_l, labels_idx = extract_pc_in_box3d(pc, box3d)
+    else:
+        labels_idx = np.zeros((len(pc)))
+
+    # normalize frustum data
+    pc_, centroid, m = normalize_data(pc)
+    # append intensity again
+    pc__ = np.vstack((pc_.T, pc.T[3])).T
+    # change to xyz coordinate system
+    pc_s = switch_coord_system(pc__.T)
+    
+    if box3d is not None:
+        # normalize 3d box as well
+        # only available if training
+        box_3d = normalize_box3d(box3d, centroid, m)
+    
+    if label is not None:
+        class_ratio = mean_sizes[label][0] / mean_sizes[label][1]
+        grid_x = pc_s.shape[0]
+        grid_y = pc_s.shape[0] / class_ratio
+    else:
+        grid_x = pc_s.shape[0] * 1.2
+        grid_y = grid_x / 1.5
+        
+    xmax, xmin, ymax, ymin, zmax, zmin, intmax, intmin = pc_frame(pc_s)
+    hg = HeightGrid(xmin, xmax, ymin, ymax, zmin, zmax, intensity=False)
+    hg.__create_grid__(pc_s, labels_idx, box3d=box_3d)
+    return hg.grid, hg.labels, hg.grid_offsets
