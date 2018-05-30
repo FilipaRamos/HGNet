@@ -75,3 +75,6 @@ class Batch():
             yield self.__getitem__(self.batch)
             self.batch += 1
             step += 1
+            
+    def __samples__(self, index):
+        return self.__yield_batch__([index])

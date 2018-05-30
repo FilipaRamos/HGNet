@@ -1,7 +1,6 @@
 """
      Some tools for visualizing pointclouds and images
 """
-import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 

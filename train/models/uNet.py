@@ -23,7 +23,7 @@ class uNet():
         o = self.level_block(i, start_ch, depth, inc_rate, activation, dropout, batchnorm, maxpool, upconv, residual)
         o = Conv2D(out_ch, 1, activation='sigmoid')(o)
         self.model = Model(inputs=i, outputs=o)
-        self.model.compile(optimizer=Adam(lr = 1e-4), loss=[focal_loss(gamma=2., alpha=.7)], metrics=[f1])
+        self.model.compile(optimizer=Adam(lr = 1e-4), loss=[focal_loss(gamma=2., alpha=.75)], metrics=[f1])
         
     def conv_block(self, m, dim, acti, bn, res, do=0):
         n = Conv2D(dim, 3, activation=acti, padding='same')(m)

@@ -43,6 +43,10 @@ def train(LOAD_FLAG=False):
     model_checkpoint = ModelCheckpoint('logs/unet.hdf5', monitor='loss', verbose=1, save_best_only=True)
     # save weights
     sw = model_tools.WeightsSaver(model)
+    # saving images from the validation set prediction at the end of each epoch
+    saveImg = model_tools.SaveTrainEx(model, [0, 500, 1000], test_generator)
+    # plot the losses values 
+    pl = model_tools.PlotLosses()
     
     results = model.fit_generator(
                 generator=train_generator.__start__(int(LEN_TRAIN_DATASET/BATCH_SIZE) - 1),
@@ -50,7 +54,7 @@ def train(LOAD_FLAG=False):
                 steps_per_epoch=int(LEN_TRAIN_DATASET/BATCH_SIZE),
                 validation_steps=int(LEN_VAL_DATASET/BATCH_SIZE),
                 epochs=20,
-                callbacks=[model_checkpoint, sw])
+                callbacks=[model_checkpoint, sw, saveImg, pl])
     
 if __name__=='__main__':
     import sys
