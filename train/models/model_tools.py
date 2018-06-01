@@ -116,6 +116,9 @@ class SaveTrainEx(keras.callbacks.Callback):
             
 class PlotLosses(keras.callbacks.Callback):
     
+    def __init__(self, epoch):
+        self.epoch = epoch
+    
     def on_train_begin(self, logs={}):
         self.i = 0
         self.x = []
@@ -132,8 +135,9 @@ class PlotLosses(keras.callbacks.Callback):
         self.val_losses.append(logs.get('val_loss'))
         self.i += 1
         
-        clear_output(wait=True)
-        plt.plot(self.x, self.losses, label="loss")
-        plt.plot(self.x, self.val_losses, label="val_loss")
-        plt.legend()
-        plt.show()
+        if epoch == self.epoch:
+            clear_output(wait=True)
+            plt.plot(self.x, self.losses, label="loss")
+            plt.plot(self.x, self.val_losses, label="val_loss")
+            plt.legend()
+            plt.show()

@@ -5,7 +5,6 @@ from keras.models import load_model
 """ Custom imports """
 import batch
 import builder
-from models import segNet
 from models import uNet
 from models import model_tools
 
@@ -46,7 +45,7 @@ def train(LOAD_FLAG=False):
     # saving images from the validation set prediction at the end of each epoch
     saveImg = model_tools.SaveTrainEx(model, [0, 500, 1000], test_generator)
     # plot the losses values 
-    pl = model_tools.PlotLosses()
+    pl = model_tools.PlotLosses(20)
     
     results = model.fit_generator(
                 generator=train_generator.__start__(int(LEN_TRAIN_DATASET/BATCH_SIZE) - 1),

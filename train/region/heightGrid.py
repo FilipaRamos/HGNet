@@ -1,16 +1,12 @@
 import numpy as np
 
-mean_sizes = {'Car': np.array([3.88311640418,1.62856739989,1.52563191462]),
-            'Pedestrian': np.array([0.84422524,0.66068622,1.76255119]),
-            'Cyclist': np.array([1.76282397,0.59706367,1.73698127])}
-
 class HeightGrid():
     
     
     """
         An HeightGrid has a size nxm, a sampling rate, a maximum number of points in the frustum.
     """
-    def __init__(self, min_x, max_x, min_y, max_y, min_z, max_z, grid_x=160, grid_y=128, intensity=False):
+    def __init__(self, min_x, max_x, min_y, max_y, min_z, max_z, height_2d, grid_x=160, grid_y=128, intensity=False, label=None):
         x_diff = max_x - min_x
         y_diff = max_y - min_y
         sample_rate_x = x_diff / grid_x
@@ -26,14 +22,19 @@ class HeightGrid():
         self.n = grid_x
         self.m = grid_y
         
+        # height of the object from 2d box (in camera coords)
+        self.height_2d = height_2d
+        
         self.min_height = min_z
-        
         self.intensity = intensity
-        
-        #self.grid = np.zeros((self.n, self.m))
-        self.grid = np.full((self.n, self.m), self.min_height)
-        self.grid_offsets = ((self.min_x, self.max_x), (self.min_y, self.max_y), self.sample_rate, (self.n, self.m))
         self.labels = np.zeros((self.n, self.m))
+        
+        self.grid = np.full((self.n, self.m), self.min_height)
+        
+        if label is not None:
+            self.grid_offsets = (label, (self.min_x, self.max_x), (self.min_y, self.max_y), self.sample_rate, (self.n, self.m), self.height_2d)
+        else:
+            self.grid_offsets = ((self.min_x, self.max_x), (self.min_y, self.max_y), self.sample_rate, (self.n, self.m), self.height_2d)
         
     def __create_grid__(self, points, labels_idx, box3d=None):
         import math
@@ -115,7 +116,7 @@ def switch_coord_system(pc):
     pc[[0,1,2,3]] = pc[[2,0,1,3]]
     return pc.T
 
-def height_grid(pc, box3d=None, label=None):
+def height_grid(pc, height_2d, box3d=None, label=None):
     """
         Does the whole process, from building the height grid to obtaining the labeled grid
     """
@@ -137,6 +138,7 @@ def height_grid(pc, box3d=None, label=None):
         # only available if training
         box_3d = normalize_box3d(box3d, centroid, m)
     
+    """
     if label is not None:
         class_ratio = mean_sizes[label][0] / mean_sizes[label][1]
         grid_x = pc_s.shape[0]
@@ -144,8 +146,28 @@ def height_grid(pc, box3d=None, label=None):
     else:
         grid_x = pc_s.shape[0] * 1.2
         grid_y = grid_x / 1.5
-        
+    """
+    
     xmax, xmin, ymax, ymin, zmax, zmin, intmax, intmin = pc_frame(pc_s)
-    hg = HeightGrid(xmin, xmax, ymin, ymax, zmin, zmax, intensity=False)
+    hg = HeightGrid(xmin, xmax, ymin, ymax, zmin, zmax, height_2d, intensity=False, label=label)
     hg.__create_grid__(pc_s, labels_idx, box3d=box_3d)
     return hg.grid, hg.labels, hg.grid_offsets
+
+def mean_sizes(pc, box3d, label):
+    # get indexes for segmentation first
+    pc_l, labels_idx = extract_pc_in_box3d(pc, box3d)
+
+    # normalize frustum data
+    pc_, centroid, m = normalize_data(pc)
+    # append intensity again
+    pc__ = np.vstack((pc_.T, pc.T[3])).T
+    # change to xyz coordinate system
+    pc_s = switch_coord_system(pc__.T)
+    
+    # normalize 3d box as well
+    # only available if training
+    box_3d = normalize_box3d(box3d, centroid, m)
+    box_t = np.copy(box_3d).T
+    box_t[[0,1,2]] = box_t[[2,0,1]]
+    
+    return box_t.T

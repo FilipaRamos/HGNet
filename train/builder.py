@@ -41,29 +41,52 @@ class Frustum():
             box3d = self.box3d_list[index]
             
         # Get height grid and turn labels into binary mask
-        grid, labels, offsets = hg.height_grid(point_set, box3d=box3d, label=label)
-        return grid, labels, offsets  
+        #grid, labels, offsets = hg.height_grid(point_set, box3d=box3d, label=label)
+        box = hg.mean_sizes(point_set, box3d, label)
+        s = box[box[:,2].argsort()]
+        bev = s[4:]
+        
+        return label, bev, point_set
                                          
 if __name__=='__main__':
     import sys
     from visualization import tools
-    index = int(sys.argv[1])
-    fr = Frustum()
-    from visualization import vtk_toolkit as vtk
-    #vtk.plot_pc(points=fr.input_list[index].T[0:3].T)
-    grid_, labels_, offsets = fr.__getitem__(index)
-    grid = np.expand_dims(grid_, axis=3)
-    labels = np.expand_dims(labels_, axis=3)
-    l = np.copy(labels)
-    #print(np.count_nonzero(labels))
-    #print(grid.shape)
-    #tools.plot_grid_colormap(grid, labels)
-    equal = 0
-    diff = 0
-    for batch, batch_pred in zip(labels, l):
-        for x, x_pred in zip(batch, batch_pred):
-            if x[0] == x_pred[0]:
-                equal += 1
-            else:
-                diff += 1
-    print(equal, diff)
+    fr = Frustum(split='train')
+    size = int(len(fr))
+    car_sizes = []
+    ped_sizes = []
+    cyc_size = []
+    for i in range(size):
+        label, bev, point_set = fr.__getitem__(i)
+        y = bev[bev[:,1].argsort()]
+        x = bev[bev[:,0].argsort()]
+        x_size = np.abs(x[2][0] - x[0][0])
+        y_size = np.abs(y[2][1] - y[0][1])
+        if x_size > y_size:
+            width = y_size
+            depth = x_size
+        else:
+            width = x_size
+            depth = y_size
+        if label == 'Car':
+            car_sizes.append([width, depth])
+        elif label == 'Pedestrian':
+            ped_sizes.append([width, depth])
+        elif label == 'Cyclist':
+            cyc_size.append([width, depth])
+    
+    print('Car mean sizes')
+    print(np.mean(car_sizes, axis=0))
+    print('MAX w,d')
+    print(max([size[0] for size in car_sizes]), max([size[1] for size in car_sizes]))
+    
+    print('Ped mean sizes')
+    print(np.mean(ped_sizes, axis=0))
+    print('MAX w,d')
+    print(max([size[0] for size in ped_sizes]), max([size[1] for size in ped_sizes]))
+    
+    print('Cyc mean sizes')
+    print(np.mean(cyc_size, axis=0))
+    print('MAX w,d')
+    print(max([size[0] for size in cyc_size]), max([size[1] for size in cyc_size]))
+

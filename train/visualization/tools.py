@@ -71,7 +71,7 @@ def plot_all(img, pc):
     plt.tight_layout()
     plt.show()
     
-def plot_grid_colormap(grid, labels, pred=None, sig=False):
+def plot_grid_colormap(grid, labels, pred=None):
     fig = plt.figure(figsize=(12, 6))
 
     ax = fig.add_subplot(1,3,1)
@@ -89,14 +89,8 @@ def plot_grid_colormap(grid, labels, pred=None, sig=False):
         ax_c.set_title('Predicted logits of BEV HeightGrid')
         plt.imshow(pred)
         ax_c.set_aspect('equal')
-        
-        if sig:
-            ax_c = fig.add_subplot(1,3,3)
-            ax_c.set_title('Predicted logits of BEV HeightGrid')
-            plt.imshow(pred)
-            ax_c.set_aspect('equal')
-        
-    plt.colorbar(orientation='horizontal')
+                
+    plt.colorbar(orientation='vertical')
     plt.show()
     
 def save_img(grid, label, pred, epoch):
