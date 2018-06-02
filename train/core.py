@@ -8,22 +8,27 @@ from keras.models import load_model
 
 """ Custom imports """
 from visualization import tools
-
+import areaBuilder
 from models import uNet
 from models import model_tools
 from region import objArea
 
 seed = 7
 np.random.seed(seed)
-BATCH_SIZE=1
+BATCH_SIZE=2
 
 def test(index=0):
-    # Train and val pickle opened
-    fr_train = builder.Frustum(split='train')
-    fr_val = builder.Frustum(split='val')
+    # Load uNet model first
+    model_u = load_model('logs/unet.hdf5', custom_objects={'focal_loss_fixed': uNet.focal_loss(gamma=2., alpha=.6), 'f1': uNet.f1})
+    print('uNet model is loading...')
+    print(model_u.summary())
     
-    LEN_TRAIN_DATASET = len(fr_train)
-    LEN_VAL_DATASET = len(fr_val)
+    # Train and val pickle opened
+    a_train = areaBuilder.Area(model_u, split='train')
+    a_val = areaBuilder.Area(model_u, split='val')
+    
+    LEN_TRAIN_DATASET = len(a_train)
+    LEN_VAL_DATASET = len(a_val)
     
     train_idxs = np.arange(0, LEN_TRAIN_DATASET)
     np.random.shuffle(train_idxs)
@@ -31,28 +36,23 @@ def test(index=0):
     val_idxs = np.arange(0, LEN_VAL_DATASET)
     np.random.shuffle(val_idxs)
     
-    train_generator = batch.Batch(train_idxs, fr_train, batch_size=BATCH_SIZE, split='train', offsets=True)
-    val_generator = batch.Batch(val_idxs, fr_val, batch_size=BATCH_SIZE, split='val', offsets=True)
+    train_generator = batch.Batch(train_idxs, a_train, batch_size=BATCH_SIZE, split='train', bbox_train=True)
+    val_generator = batch.Batch(val_idxs, a_val, batch_size=BATCH_SIZE, split='val', bbox_train=True)
+        
+    # Add a checkpoint for our model
+    model_checkpoint = ModelCheckpoint('logs/bbNet.hdf5', monitor='loss', verbose=1, save_best_only=True)
+    # save weights
+    sw = model_tools.WeightsSaver(model)
+    # plot the losses values 
+    pl = model_tools.PlotLosses(20)
     
-    # get a sample grid
-    X_, y_, offsets_ = val_generator.__samples__(index)
-    X = np.squeeze(X_)
-    y = np.squeeze(y_)
-    
-    model = load_model('logs/unet.hdf5', custom_objects={'focal_loss_fixed': uNet.focal_loss(gamma=2., alpha=.6), 'f1': uNet.f1})
-    print(model.summary())
-    
-    logits_ = model.predict(X_)
-    logits = np.squeeze(logits_)
-    tools.plot_grid_colormap(X, y, pred=logits)
-    
-    # object area to extract connected components
-    objA = objArea.objArea(X, logits, offsets_)
-    objA.__filter_seg__()
-    objA.__cc__()
-    
-    tools.plot_grid_colormap(X, y, pred=objA.components_grid)
-    
+    results = model.fit_generator(
+                generator=train_generator.__start__(int(LEN_TRAIN_DATASET/BATCH_SIZE) - 1),
+                validation_data=val_generator.__start__(int(LEN_VAL_DATASET/BATCH_SIZE) - 1),
+                steps_per_epoch=int(LEN_TRAIN_DATASET/BATCH_SIZE),
+                validation_steps=int(LEN_VAL_DATASET/BATCH_SIZE),
+                epochs=20,
+                callbacks=[model_checkpoint, sw, pl])
     
 if __name__=='__main__':
     import sys

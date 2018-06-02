@@ -41,12 +41,9 @@ class Frustum():
             box3d = self.box3d_list[index]
             
         # Get height grid and turn labels into binary mask
-        #grid, labels, offsets = hg.height_grid(point_set, box3d=box3d, label=label)
-        box = hg.mean_sizes(point_set, box3d, label)
-        s = box[box[:,2].argsort()]
-        bev = s[4:]
+        grid, labels = hg.height_grid(point_set, box3d=box3d, label=label)
         
-        return label, bev, point_set
+        return grid, labels
                                          
 if __name__=='__main__':
     import sys

@@ -6,18 +6,10 @@ import tensorflow as tf
 
 class uNet():
     
-    def __init__(self, img_rows, img_cols, batch_size=4, init_weights=False):
-        
-        out_ch=1 
-        start_ch=64
-        depth=4
-        inc_rate=2.
-        activation='relu'
-        dropout=0.5
-        batchnorm=False
-        maxpool=True
-        upconv=True
-        residual=False
+    def __init__(self, img_rows, img_cols, batch_size=4, out_ch=1, \
+                 start_ch=64, depth=4, inc_rate=2., activation='relu', \
+                 dropout=0.5, batchnorm=False, maxpool=True, upconv=True, \
+                 residual=False, init_weights=False):
         
         i = Input(shape=(img_rows, img_cols, 1))
         o = self.level_block(i, start_ch, depth, inc_rate, activation, dropout, batchnorm, maxpool, upconv, residual)
