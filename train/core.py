@@ -1,16 +1,17 @@
 import numpy as np
 
-import batch
-import builder
-
 from keras.callbacks import ModelCheckpoint
 from keras.models import load_model
 
 """ Custom imports """
-from visualization import tools
+import batch
+import builder
 import areaBuilder
+
 from models import uNet
+from models import bbNet
 from models import model_tools
+
 from region import objArea
 
 seed = 7
