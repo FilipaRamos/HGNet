@@ -108,13 +108,18 @@ class objArea():
     def __objCC__(self, tresh=0.5):
         self.__filter_seg__(tresh=tresh)
         self.__cc__()
-        self.component = self.c_list[0]
-        if self.n_comp > 1:
-            self.__component_confidence__()
-        pv = self.__pixel_value__()
+        # a component was found
+        if len(self.c_list) > 0:
+            self.component = self.c_list[0]
+            if self.n_comp > 1:
+                self.__component_confidence__()
+            pv = self.__pixel_value__()
         
-        # returns areas with the coordinates
-        return self.__build_areas__(pv)
+            # returns areas with the coordinates
+            return self.__build_areas__(pv)
+        # no component was found
+        else:
+            return None
     
 def in_hull(p, hull):
     from scipy.spatial import Delaunay

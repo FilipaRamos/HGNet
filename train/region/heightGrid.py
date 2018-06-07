@@ -1,5 +1,7 @@
 import numpy as np
 
+from models import IoU_tools
+
 class HeightGrid():
     
     
@@ -194,8 +196,12 @@ def grid_offsets(pc, height_2d, box3d=None, label=None):
         box = box_3d[box_3d[:,2].argsort()]
         bev_ = box[4:]
         bev = bev_.T[:2].T
+        # sort by x
+        bev = bev[bev[:,0].argsort()]
+        # order points in clockwise order
+        bev_c = IoU_tools.clockwise(bev)
         
     xmax, xmin, ymax, ymin, zmax, zmin, intmax, intmin = pc_frame(pc_s)
     hg = HeightGrid(xmin, xmax, ymin, ymax, zmin, zmax, intensity=False, label=label, offsets=True, height_2d=height_2d)
     hg.__create_grid__(pc_s, labels_idx, box3d=box_3d)
-    return pc_s, hg.grid, hg.grid_offsets, bev
+    return pc_s, hg.grid, hg.grid_offsets, bev_c

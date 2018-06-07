@@ -8,7 +8,11 @@ class Batch():
     
     def __init__(self, indexes, fl, batch_size=32, data_path=None, split='train', bbox_train=False):
         if data_path is None:
-            self.data_path = os.path.join(ROOT_DIR,
+            if bbox_train:
+                self.data_path = os.path.join(ROOT_DIR,
+                    'kitti/pc_ai_%s.pickle'%(split))
+            else:
+                self.data_path = os.path.join(ROOT_DIR,
                     'kitti/pc_hg_%s.pickle'%(split))
         else:
             self.data_path = data_path
@@ -29,17 +33,14 @@ class Batch():
         # Generate data
         for batch in batch_indexes:
             out_, labels_ = self.fl.__getitem__(batch)
-            if self.bbox_train:
-                out = np.expand_dims(out_, axis=0)
-                labels = np.expand_dims(labels_, axis=0) 
-            else:
-                out = np.expand_dims(out_, axis=2)
-                labels = np.expand_dims(labels_, axis=2)
+            if not self.bbox_train:
+                out_ = np.expand_dims(out_, axis=2)
+                labels_ = np.expand_dims(labels_, axis=2)
             
             # get samples from builder
-            X.append(out)
+            X.append(out_)
             # Store class
-            y.append(labels)
+            y.append(labels_)
             
         return np.array(X), np.array(y)
     
