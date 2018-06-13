@@ -21,9 +21,6 @@ def polygon_clip(subjectPolygon, clipPolygon):
      a list of (x,y) vertex point for the intersection polygon.
     """
     def inside(p):
-        print(cp2.shape)
-        print(cp1.shape)
-        print(p.shape)
         return(cp2[0]-cp1[0])*(p[1]-cp1[1]) > (cp2[1]-cp1[1])*(p[0]-cp1[0])
     
     def computeIntersection():
@@ -205,16 +202,21 @@ def clockwise_order(box):
         if len(fourth) > 0:
             clockwise.append(fourth[0])
         
-    return np.array(clockwise)
+    return np.array(clockwise)"""
         
 def iou_bev(y_true, y_pred):
-    y_true = clockwise_order(y_true)
-    y_pred = clockwise_order(y_pred)
-    rect1 = [(y_true[i,0], y_true[i,1]) for i in range(3, -1, -1)]
-    rect2 = [(y_pred[i,0], y_pred[i,1]) for i in range(3, -1, -1)]
+    y_true = np.reshape(y_true, (4,2))
+    y_pred = np.reshape(y_pred, (4,2))
+    
+    rect1 = np.array([y_true[:,0], y_true[:,1]]).T
+    rect2 = np.array([y_pred[:,0], y_pred[:,1]]).T
     area1 = poly_area(np.array(y_true)[:,0], np.array(y_true)[:,1])
     area2 = poly_area(np.array(y_pred)[:,0], np.array(y_pred)[:,1])
     inter, inter_area = convex_hull_intersection(y_true, y_pred)
-    iou = inter_area/(area1+area2-inter_area)
     
-    return iou"""
+    if (area1+area2-inter_area) == 0:
+        iou = 0
+    else:
+        iou = inter_area/(area1+area2-inter_area)
+    
+    return iou

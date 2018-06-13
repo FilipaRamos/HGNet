@@ -6,16 +6,15 @@ import tensorflow as tf
 
 class uNet():
     
-    def __init__(self, img_rows, img_cols, batch_size=4, out_ch=1, \
+    def __init__(self, img_rows, img_cols, treshold=0.5, batch_size=4, out_ch=1, \
                  start_ch=64, depth=4, inc_rate=2., activation='relu', \
                  dropout=0.5, batchnorm=False, maxpool=True, upconv=True, \
                  residual=False, init_weights=False):
-        
         i = Input(shape=(img_rows, img_cols, 1))
         o = self.level_block(i, start_ch, depth, inc_rate, activation, dropout, batchnorm, maxpool, upconv, residual)
         o = Conv2D(out_ch, 1, activation='sigmoid')(o)
         self.model = Model(inputs=i, outputs=o)
-        self.model.compile(optimizer=Adam(lr = 1e-4), loss=[focal_loss(gamma=2., alpha=.75)], metrics=[f1])
+        self.model.compile(optimizer=Adam(lr = 1e-4), loss=[focal_loss(gamma=2., alpha=.75)], metrics=[precision(tresh=treshold), recall(tresh=treshold)])
         
     def conv_block(self, m, dim, acti, bn, res, do=0):
         n = Conv2D(dim, 3, activation=acti, padding='same')(m)
@@ -27,7 +26,7 @@ class uNet():
     
     def level_block(self, m, dim, depth, inc, acti, do, bn, mp, up, res):
         if depth > 0:
-            n = self.conv_block(m, dim, acti, bn, res)
+            n = self.conv_block(m, dim, acti, bn, res, do=do)
             m = MaxPooling2D()(n) if mp else Conv2D(dim, 3, strides=2, padding='same')(n)
             m = self.level_block(m, int(inc*dim), depth-1, inc, acti, do, bn, mp, up, res)
             if up:
@@ -50,8 +49,8 @@ def focal_loss(gamma=2., alpha=0.75):
         return -K.sum(alpha * K.pow(1. - pt_1, gamma) * K.log(pt_1))-K.sum((1-alpha) * K.pow( pt_0, gamma) * K.log(1. - pt_0))
     return focal_loss_fixed
 
-def f1(y_true, y_pred):
-    def recall(y_true, y_pred):
+def recall(tresh=0.5):
+    def recall_(y_true, y_pred):
         """Recall metric.
 
         Only computes a batch-wise average of recall.
@@ -59,12 +58,18 @@ def f1(y_true, y_pred):
         Computes the recall, a metric for multi-label classification of
         how many relevant items are selected.
         """
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+        # Adaptation of the "round()" used before to get the predictions. Clipping to make sure that the predicted raw values are between 0 and 1.
+        y_pred = K.cast(K.greater(K.clip(y_pred, 0, 1), tresh), K.floatx())
+        # Compute the number of true positives. Rounding in prevention to make sure we have an integer.
+        true_positives = K.round(K.sum(K.clip(y_true * y_pred, 0, 1)))
+        #true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
         possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
         recall = true_positives / (possible_positives + K.epsilon())
         return recall
-
-    def precision(y_true, y_pred):
+    return recall_
+    
+def precision(tresh=0.5):
+    def precision_(y_true, y_pred):
         """Precision metric.
 
         Only computes a batch-wise average of precision.
@@ -72,21 +77,12 @@ def f1(y_true, y_pred):
         Computes the precision, a metric for multi-label classification of
         how many selected items are relevant.
         """
-        true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+        # Adaptation of the "round()" used before to get the predictions. Clipping to make sure that the predicted raw values are between 0 and 1.
+        y_pred = K.cast(K.greater(K.clip(y_pred, 0, 1), tresh), K.floatx())
+        # Compute the number of true positives. Rounding in prevention to make sure we have an integer.
+        true_positives = K.round(K.sum(K.clip(y_true * y_pred, 0, 1)))
+        #true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
         predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
         precision = true_positives / (predicted_positives + K.epsilon())
         return precision
-    precision = precision(y_true, y_pred)
-    recall = recall(y_true, y_pred)
-    return 2*((precision*recall)/(precision+recall+K.epsilon()))
-
-""" Test later """
-def computeIoU(y_pred_batch, y_true_batch):
-    return np.mean(np.asarray([pixelAccuracy(y_pred_batch[i], y_true_batch[i]) for i in range(len(y_true_batch))])) 
-
-def pixelAccuracy(y_pred, y_true):
-    y_pred = np.argmax(np.reshape(y_pred,[N_CLASSES_PASCAL,img_rows,img_cols]),axis=0)
-    y_true = np.argmax(np.reshape(y_true,[N_CLASSES_PASCAL,img_rows,img_cols]),axis=0)
-    y_pred = y_pred * (y_true>0)
-    
-    return 1.0 * np.sum((y_pred==y_true)*(y_true>0)) /  np.sum(y_true>0)
+    return precision_

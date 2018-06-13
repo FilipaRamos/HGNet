@@ -10,12 +10,14 @@ from region import heightGrid as hg
 class Frustum():
     
     
-    def __init__(self, split='train', data_path=None):       
+    def __init__(self, grid_x, grid_y, split='train', data_path=None):       
         if data_path is None:
             data_path = os.path.join(ROOT_DIR,
                 'kitti/pc_hg_%s.pickle'%(split))
             
         self.split = split
+        self.grid_x = grid_x
+        self.grid_y = grid_y
         
         with open(data_path,'rb') as fp:
             self.id_list = pickle.load(fp, encoding='latin1')
@@ -41,7 +43,7 @@ class Frustum():
             box3d = self.box3d_list[index]
             
         # Get height grid and turn labels into binary mask
-        grid, labels = hg.height_grid(point_set, box3d=box3d, label=label)
+        grid, labels = hg.height_grid(point_set, self.grid_x, self.grid_y, box3d=box3d, label=label)
         
         return grid, labels
     

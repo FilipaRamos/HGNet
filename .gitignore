@@ -112,4 +112,5 @@ kitti/pc_ai_val.pickle
 
 # model logs folder
 logs/
+logs_b/
 images/

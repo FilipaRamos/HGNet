@@ -116,7 +116,7 @@ def switch_coord_system(pc):
     pc[[0,1,2,3]] = pc[[2,0,1,3]]
     return pc.T
 
-def height_grid(pc, box3d=None, label=None):
+def height_grid(pc, grid_x, grid_y, box3d=None, label=None):
     """
         Does the whole process, from building the height grid to obtaining the labeled grid
     """
@@ -138,18 +138,8 @@ def height_grid(pc, box3d=None, label=None):
         # only available if training
         box_3d = normalize_box3d(box3d, centroid, m)
     
-    """
-    if label is not None:
-        class_ratio = mean_sizes[label][0] / mean_sizes[label][1]
-        grid_x = pc_s.shape[0]
-        grid_y = pc_s.shape[0] / class_ratio
-    else:
-        grid_x = pc_s.shape[0] * 1.2
-        grid_y = grid_x / 1.5
-    """
-    
     xmax, xmin, ymax, ymin, zmax, zmin, intmax, intmin = pc_frame(pc_s)
-    hg = HeightGrid(xmin, xmax, ymin, ymax, zmin, zmax, intensity=False, label=label)
+    hg = HeightGrid(xmin, xmax, ymin, ymax, zmin, zmax, grid_x=grid_x, grid_y=grid_y, intensity=False, label=label)
     hg.__create_grid__(pc_s, labels_idx, box3d=box_3d)
     return hg.grid, hg.labels
 

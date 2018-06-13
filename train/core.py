@@ -17,12 +17,13 @@ from region import objArea
 
 seed = 7
 np.random.seed(seed)
-BATCH_SIZE=2
+BATCH_SIZE=128
 
 def test():
     # Train and val pickle opened
     a_train = areaBuilder.Area(split='train')
     a_val = areaBuilder.Area(split='val')
+    iou_test = areaBuilder.Area(split='val')
     
     LEN_TRAIN_DATASET = len(a_train)
     LEN_VAL_DATASET = len(a_val)
@@ -41,22 +42,21 @@ def test():
     print(model_bb.summary())
     
     # Add a checkpoint for our model
-    model_checkpoint = ModelCheckpoint('logs/bbNet.hdf5', monitor='loss', verbose=1, save_best_only=True)
+    model_checkpoint = ModelCheckpoint('logs_b/bbNet.hdf5', monitor='loss', verbose=1, save_best_only=True)
     # save weights
-    sw = model_tools.WeightsSaver(model_bb)
+    sw = model_tools.WeightsSaver(model_bb, path='logs_b/')
     # plot the losses values 
-    pl = model_tools.PlotLosses(20)
+    pl = model_tools.PlotLosses(30)
+    # show bev iou
+    iou = model_tools.IoU(model_bb, iou_test)
     
     results = model_bb.fit_generator(
                 generator=train_generator.__start__(int(LEN_TRAIN_DATASET/BATCH_SIZE) - 1),
                 validation_data=val_generator.__start__(int(LEN_VAL_DATASET/BATCH_SIZE) - 1),
                 steps_per_epoch=int(LEN_TRAIN_DATASET/BATCH_SIZE),
                 validation_steps=int(LEN_VAL_DATASET/BATCH_SIZE),
-                epochs=20)
+                epochs=30,
+                callbacks=[model_checkpoint, sw, pl, iou])
     
 if __name__=='__main__':
-    import sys
-    if len(sys.argv) > 1:
-        test(index=int(sys.argv[1]))
-    else:
-        test()
+    test()

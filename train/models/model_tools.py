@@ -1,19 +1,25 @@
+import time
 import numpy as np
 from PIL import Image
 import keras.callbacks
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
+
+from models import IoU_tools
         
 class WeightsSaver(keras.callbacks.Callback):
     """ 
     This callback class saves weights at each epoch's end
     """
     
-    def __init__(self, model):
+    def __init__(self, model, grid_x, grid_y, path='logs/'):
         self.model = model
+        self.path = path
+        self.grid_x = grid_x
+        self.grid_y = grid_y
     
     def on_epoch_end(self, epoch, logs={}):
-        name = 'logs/weights%02d.h5' % epoch
+        name = self.path + 'weights%02d-%03d-%03d.h5' % (epoch, self.grid_x, self.grid_y)
         self.model.save_weights(name)
         
 class SaveTrainEx(keras.callbacks.Callback):
@@ -62,9 +68,44 @@ class PlotLosses(keras.callbacks.Callback):
         self.val_losses.append(logs.get('val_loss'))
         self.i += 1
         
-        if epoch == self.epoch:
+        # plot at each multipleanaconda
+        if epoch % self.epoch == 0 and epoch != 0:
             clear_output(wait=True)
             plt.plot(self.x, self.losses, label="loss")
             plt.plot(self.x, self.val_losses, label="val_loss")
             plt.legend()
             plt.show()
+            
+class TimeHistory(keras.callbacks.Callback):
+    def on_train_begin(self, logs={}):
+        self.times = []
+
+    def on_epoch_begin(self, batch, logs={}):
+        self.epoch_time_start = time.time()
+
+    def on_epoch_end(self, batch, logs={}):
+        t = time.time() - self.epoch_time_start
+        self.times.append(t)
+        print('**' + str(t) + 's **')
+            
+class IoU(keras.callbacks.Callback):
+    """ 
+    This callback class calculates iou at each epoch
+    TODO: clockwise is not guaranteed so IoU calculation comes out wrong
+    """
+    
+    def __init__(self, model, gen):
+        self.model = model
+        self.gen = gen
+        self.iou = []
+    
+    def on_epoch_end(self, epoch, logs={}):
+        for i in range(len(self.gen)):
+            X_, y = self.gen.__getitem__(i)
+            X = np.expand_dims(X_, axis=0)
+            pred = self.model.predict(X)
+            self.iou.append(IoU_tools.iou_bev(y, pred))
+        
+        print('Mean IoU = ')
+        print(np.mean(self.iou))
+        self.iou = []
