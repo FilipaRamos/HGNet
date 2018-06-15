@@ -8,18 +8,36 @@ class HeightGrid():
     """
         An HeightGrid has a size nxm, a sampling rate, a maximum number of points in the frustum.
     """
-    def __init__(self, min_x, max_x, min_y, max_y, min_z, max_z, grid_x=160, grid_y=128, intensity=False, offsets=False, label=None, height_2d=None):
-        x_diff = max_x - min_x
-        y_diff = max_y - min_y
+    def __init__(self, min_x, max_x, min_y, max_y, min_z, max_z, grid_x=160, grid_y=128, intensity=False, offsets=False, label=None, height_2d=None, box_limits=None):
+        if box_limits is not None:
+            if box_limits[0] < min_x:
+                self.min_x = box_limits[0]
+            else:
+                self.min_x = min_x
+            if box_limits[1] < min_y:
+                self.min_y = box_limits[1]
+            else:
+                self.min_y = min_y
+            if box_limits[2] > max_x:
+                self.max_x = box_limits[2]
+            else:
+                self.max_x = max_x
+            if box_limits[3] > max_y:
+                self.max_y = box_limits[3]
+            else:
+                self.max_y = max_y
+        else:
+            self.min_x = min_x
+            self.max_x = max_x
+            self.min_y = min_y
+            self.max_y = max_y
+        
+        x_diff = self.max_x - self.min_x
+        y_diff = self.max_y - self.min_y
         sample_rate_x = x_diff / grid_x
         sample_rate_y = y_diff / grid_y
         
         self.sample_rate = (sample_rate_x, sample_rate_y)
-        
-        self.min_x = min_x
-        self.max_x = max_x
-        self.min_y = min_y
-        self.max_y = max_y
         
         self.n = grid_x
         self.m = grid_y
@@ -40,8 +58,8 @@ class HeightGrid():
         import math
         
         for point, label in zip(points, labels_idx):
-            x = int((np.abs(self.min_x) + point[0])/self.sample_rate[0])
-            y = int((np.abs(self.min_y) + point[1])/self.sample_rate[1])
+            x = int((-self.min_x + point[0])/self.sample_rate[0])
+            y = int((-self.min_y + point[1])/self.sample_rate[1])
             
             # last point contained on the last cell and not starting a new one
             if point[0] == self.max_x:
@@ -56,9 +74,9 @@ class HeightGrid():
                 else:
                     self.grid[x][y] = point[2]
             
-            if box3d is not None:
-                if label:
-                    self.labels[x][y] = 1
+            #if box3d is not None:
+                #if label:
+            self.labels[x][y] = 1
 
 def max_col_elem(l, col):
     return max(l, key=lambda x: x[col - 1])[col - 1]
@@ -116,7 +134,7 @@ def switch_coord_system(pc):
     pc[[0,1,2,3]] = pc[[2,0,1,3]]
     return pc.T
 
-def height_grid(pc, grid_x, grid_y, box3d=None, label=None):
+def height_grid(pc, grid_x, grid_y, box3d=None, label=None, intensity=False):
     """
         Does the whole process, from building the height grid to obtaining the labeled grid
     """
@@ -137,11 +155,48 @@ def height_grid(pc, grid_x, grid_y, box3d=None, label=None):
         # normalize 3d box as well
         # only available if training
         box_3d = normalize_box3d(box3d, centroid, m)
+        box_3d.T[[0,1,2]] = box_3d.T[[2,0,1]]
+        box = box_3d[box_3d[:,2].argsort()]
+        bev_ = box[4:]
+        bev = bev_.T[:2].T
+        # sort by x
+        bev = bev[bev[:,0].argsort()]
+        x = bev[:,0]
+        y = bev[:,1]
     
     xmax, xmin, ymax, ymin, zmax, zmin, intmax, intmin = pc_frame(pc_s)
-    hg = HeightGrid(xmin, xmax, ymin, ymax, zmin, zmax, grid_x=grid_x, grid_y=grid_y, intensity=False, label=label)
+    hg = HeightGrid(xmin, xmax, ymin, ymax, zmin, zmax, grid_x=grid_x, grid_y=grid_y, label=label, intensity=intensity, box_limits=[min(x), min(y), max(x), max(y)])
     hg.__create_grid__(pc_s, labels_idx, box3d=box_3d)
-    return hg.grid, hg.labels
+    
+    labels = convert_images(hg, bev, np.zeros((grid_x, grid_y)))
+    
+    return hg.grid, labels
+
+def convert_images(hg, bev, labels):
+    pairs = to_pixel_coords(bev, hg)
+    # pairs in clockwise order
+    from scipy.spatial import ConvexHull
+    hull = ConvexHull(pairs)
+    p = pairs[hull.vertices[::-1]]
+    import cv2
+    cv2.fillConvexPoly(labels, p, 1)
+    
+    #from visualization import tools
+    #tools.plot_img(hg.grid)
+    #tools.plot_img(hg.labels)
+    #tools.plot_img(labels)
+        
+    return labels
+
+def to_pixel_coords(bev, hg):
+    pairs = []
+    for pair in bev:
+        x = int((-hg.min_x + pair[0])/hg.sample_rate[0])
+        y = int((-hg.min_y + pair[1])/hg.sample_rate[1])
+        # reversed in image coordinates for opencv
+        pairs.append([y, x])
+    
+    return np.array(pairs)
 
 def mean_sizes(pc, box3d, label):
     # get indexes for segmentation first

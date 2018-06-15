@@ -4,6 +4,7 @@ from PIL import Image
 import keras.callbacks
 import matplotlib.pyplot as plt
 from IPython.display import clear_output
+from visualization import tools
 
 from models import IoU_tools
         
@@ -37,12 +38,15 @@ class SaveTrainEx(keras.callbacks.Callback):
             X, y = self.test_gen.__samples__(index)
             pred = self.model.predict(X)
             X_ = np.squeeze(X)
+            y_ = np.squeeze(y)
             pred_ = np.squeeze(pred)
             img = Image.fromarray(pred_)
             img.save('images/' + str(index) + 'pred_' + str(epoch) + '_logits.tiff', 'tiff')
+            img_l = Image.fromarray(y_)
+            img_l.save('images/' + str(index) + 'label_' + str(epoch) + '_logits.tiff', 'tiff')
             img_x = Image.fromarray(X_)
             img_x.save('images/' + str(index) + 'grid_' + str(epoch) + '_logits.tiff', 'tiff')
-        print('\n Saved some predictions on the test dataset... \n')
+        print('Saved some predictions on the test dataset... \n')
             
 class PlotLosses(keras.callbacks.Callback):
     """

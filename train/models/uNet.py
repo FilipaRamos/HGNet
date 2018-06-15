@@ -1,20 +1,20 @@
 from keras.models import Sequential, Model
-from keras.layers import Conv2D, MaxPooling2D, Dense, Dropout, Flatten, Lambda, ZeroPadding2D, BatchNormalization, Activation, UpSampling2D, Layer, Reshape, Permute, Input, merge
+from keras.layers import Conv2D, MaxPooling2D, Dense, Dropout, Flatten, Lambda, ZeroPadding2D, BatchNormalization, Activation, UpSampling2D, Layer, Reshape, Permute, Input, merge, Concatenate
 from keras.optimizers import SGD, Adam
 import keras.backend as K
 import tensorflow as tf
 
 class uNet():
     
-    def __init__(self, img_rows, img_cols, treshold=0.5, batch_size=4, out_ch=1, \
+    def __init__(self, img_rows, img_cols, channels, threshold=0.5, batch_size=4, out_ch=1, \
                  start_ch=64, depth=4, inc_rate=2., activation='relu', \
-                 dropout=0.5, batchnorm=False, maxpool=True, upconv=True, \
-                 residual=False, init_weights=False):
-        i = Input(shape=(img_rows, img_cols, 1))
+                 dropout=0.5, batchnorm=True, maxpool=True, upconv=True, \
+                 residual=True, init_weights=False):
+        i = Input(shape=(img_rows, img_cols, channels))
         o = self.level_block(i, start_ch, depth, inc_rate, activation, dropout, batchnorm, maxpool, upconv, residual)
         o = Conv2D(out_ch, 1, activation='sigmoid')(o)
         self.model = Model(inputs=i, outputs=o)
-        self.model.compile(optimizer=Adam(lr = 1e-4), loss=[focal_loss(gamma=2., alpha=.75)], metrics=[precision(tresh=treshold), recall(tresh=treshold)])
+        self.model.compile(optimizer=Adam(lr = 1e-4), loss=[focal_loss(gamma=2., alpha=.75)], metrics=[precision(tresh=threshold), recall(tresh=threshold)])
         
     def conv_block(self, m, dim, acti, bn, res, do=0):
         n = Conv2D(dim, 3, activation=acti, padding='same')(m)
@@ -62,8 +62,8 @@ def recall(tresh=0.5):
         y_pred = K.cast(K.greater(K.clip(y_pred, 0, 1), tresh), K.floatx())
         # Compute the number of true positives. Rounding in prevention to make sure we have an integer.
         true_positives = K.round(K.sum(K.clip(y_true * y_pred, 0, 1)))
-        #true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+        # Compute the number of positive targets.
+        possible_positives = K.sum(K.clip(y_true, 0, 1))
         recall = true_positives / (possible_positives + K.epsilon())
         return recall
     return recall_
@@ -81,8 +81,9 @@ def precision(tresh=0.5):
         y_pred = K.cast(K.greater(K.clip(y_pred, 0, 1), tresh), K.floatx())
         # Compute the number of true positives. Rounding in prevention to make sure we have an integer.
         true_positives = K.round(K.sum(K.clip(y_true * y_pred, 0, 1)))
-        #true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-        predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+        # count the predicted positives
+        predicted_positives = K.sum(y_pred)
+        # Get the precision ratio
         precision = true_positives / (predicted_positives + K.epsilon())
         return precision
     return precision_

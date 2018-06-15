@@ -1,13 +1,20 @@
 """
      Some tools for visualizing pointclouds and images
 """
+import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_img(image):
-    cv2.imshow('camera view',img)
+def plot_img(img):
+    cv2.imshow('camera view', np.array(img))
     cv2.waitKey(0)
 
+def plot_imgs(img1, img2, img3):
+    f, axarr = plt.subplots(2,2)
+    axarr[0,0].imshow(img1)
+    axarr[0,1].imshow(img2)
+    axarr[1,0].imshow(img3)
+    
 """
     Plots the frustum in BEV
 """

@@ -83,9 +83,9 @@ def box_center(box):
     
     return np.array([(xmax-xmin) / 2, (ymax - ymin) / 2])  
 
-def clockwiseangle_and_distance(point):
-    origin = [0, 0]
-    refvec = [0, 1]
+def clockwiseangle_and_distance(point, origin, refvec):
+    #origin = [0, 0]
+    #refvec = [0, 1]
     # Vector between point and the origin: v = p - o
     vector = [point[0]-origin[0], point[1]-origin[1]]
     # Length of vector: ||v||
